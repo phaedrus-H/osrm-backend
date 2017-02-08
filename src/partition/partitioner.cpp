@@ -66,9 +66,7 @@ CompressedNodeBasedGraph LoadCompressedNodeBasedGraph(const std::string &path)
     return graph;
 }
 
-void LogGeojson(const double balance,
-                const std::string &filename,
-                std::vector<std::uint32_t> bisection_ids)
+void LogGeojson(const std::string &filename, std::vector<std::uint32_t> bisection_ids)
 {
     // reload graph, since we destroyed the old one
     auto compressed_node_based_graph = LoadCompressedNodeBasedGraph(filename);
@@ -90,7 +88,7 @@ void LogGeojson(const double balance,
         return level;
     };
 
-    AnnotatedPartition partition(graph, balance, bisection_ids);
+    AnnotatedPartition partition(graph, bisection_ids);
 
     std::vector<std::vector<util::Coordinate>> border_vertices(33);
 
@@ -151,8 +149,7 @@ int Partitioner::Run(const PartitionConfig &config)
                                            config.num_optimizing_cuts,
                                            config.small_component_size);
 
-    LogGeojson(config.balance,
-               config.compressed_node_based_graph_path.string(),
+    LogGeojson(config.compressed_node_based_graph_path.string(),
                recursive_bisection.BisectionIDs());
 
     return 0;

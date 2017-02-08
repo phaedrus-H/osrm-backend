@@ -82,7 +82,6 @@ bool hasChildren(const std::vector<AnnotatedPartition::SizedID> &implicit_tree,
 } // namespace
 
 AnnotatedPartition::AnnotatedPartition(const BisectionGraph &graph,
-                                       const double balance,
                                        const std::vector<BisectionID> &bisection_ids)
 {
     // create a sorted vector of bisection ids that exist in the network
@@ -129,7 +128,7 @@ AnnotatedPartition::AnnotatedPartition(const BisectionGraph &graph,
                    });
 
     PrintBisection(implicit_tree, graph, bisection_ids);
-    SearchLevels(balance, implicit_tree, graph, bisection_ids);
+    SearchLevels(implicit_tree, graph, bisection_ids);
 }
 
 void AnnotatedPartition::PrintBisection(const std::vector<SizedID> &implicit_tree,
@@ -176,8 +175,7 @@ void AnnotatedPartition::PrintBisection(const std::vector<SizedID> &implicit_tre
     }
 }
 
-void AnnotatedPartition::SearchLevels(double balance,
-                                      const std::vector<SizedID> &implicit_tree,
+void AnnotatedPartition::SearchLevels(const std::vector<SizedID> &implicit_tree,
                                       const BisectionGraph &graph,
                                       const std::vector<BisectionID> &bisection_ids) const
 {
@@ -220,27 +218,37 @@ void AnnotatedPartition::SearchLevels(double balance,
             }
         }
 
-        // std::size_t max_size = balance * (total_size / static_cast<double>(count));
+        auto avg_size = (total_size / static_cast<double>(count));
 
         current_level.clear();
 
-        const auto relax = [&id_queue, implicit_tree, max_size, &current_level](
+        const auto relax = [&id_queue, implicit_tree, avg_size, &current_level](
             const std::pair<BisectionID, std::uint32_t> &element) {
             const auto size = getCellSize(implicit_tree, element.first, element.second - 1);
-            if (size <= max_size)
-            {
-                current_level.push_back(element);
-            }
-            else if (!hasChildren(implicit_tree, element.first, element.second))
+            if (!hasChildren(implicit_tree, element.first, element.second))
             {
                 current_level.push_back(element);
             }
             else
             {
-                id_queue.push(std::pair<BisectionID, std::uint32_t>(
-                    leftChild(element.first, element.second), element.second + 1));
-                id_queue.push(std::pair<BisectionID, std::uint32_t>(
-                    rightChild(element.first, element.second), element.second + 1));
+                const auto left = leftChild(element.first, element.second);
+                const auto right = rightChild(element.first, element.second);
+
+                const auto get_penalty = [avg_size](const auto size) { return std::abs(size - avg_size); };
+
+                if (get_penalty(size) <
+                    0.5 * (get_penalty(getCellSize(implicit_tree, left, element.second)) +
+                           get_penalty(getCellSize(implicit_tree, right, element.second))))
+                {
+                    current_level.push_back(element);
+                }
+                else
+                {
+                    id_queue.push(std::pair<BisectionID, std::uint32_t>(
+                        leftChild(element.first, element.second), element.second + 1));
+                    id_queue.push(std::pair<BisectionID, std::uint32_t>(
+                        rightChild(element.first, element.second), element.second + 1));
+                }
             }
         };
 
@@ -314,9 +322,10 @@ AnnotatedPartition::AnalyseLevel(const BisectionGraph &graph,
 
     std::vector<std::size_t> cell_sizes_vec;
     cell_sizes_vec.resize(cell_sizes.size());
-    std::transform(cell_sizes.begin(), cell_sizes.end(), cell_sizes_vec.begin(), [](const auto &pair) {
-        return pair.second;
-    });
+    std::transform(cell_sizes.begin(),
+                   cell_sizes.end(),
+                   cell_sizes_vec.begin(),
+                   [](const auto &pair) { return pair.second; });
 
     return {border_nodes_total,
             border_arcs_total,
