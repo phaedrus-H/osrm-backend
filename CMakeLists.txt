@@ -358,7 +358,6 @@ if(APPLE)
     message(STATUS "linking against libc++")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
   endif()
-  add_definitions(-DBOOST_INTERPROCESS_FORCE_GENERIC_EMULATION)
 endif()
 
 if(UNIX AND NOT APPLE)
